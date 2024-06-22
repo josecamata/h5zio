@@ -22,13 +22,20 @@ int main()
 
     H5ZIO h5zio;
     H5ZIOParameters parameters;
-    parameters.set_compression_type(Compression::Type::LOSSLESS);
-    parameters.set_lossless_compression(Compression::LossLessType::GZIP);
+    parameters.set_compression_type(Compression::Type::LOSSY);
+    parameters.set_lossy_compression(Compression::LossyType::ZFP);
     
-    h5zio.open("test.h5");
+    h5zio.open("test.h5", "w", true);
     h5zio.write_dataset<double>("f", f, parameters);
     h5zio.close();
 
+    h5zio.open("test.h5", "r", true);
+    h5zio.read_dataset<double>("f", f2);
+    h5zio.close();
+
+    // Compute the L2 norm of the difference between f and f2
+    double error = compute_l2_norm(f, f2);
+    std::cout << "L2 norm of the error: " << error << std::endl;
 
     return 0;
 }

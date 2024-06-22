@@ -220,11 +220,38 @@ H5ZIO::~H5ZIO()
     }
 }
 
-void H5ZIO::open(const std::string &filename)
+void H5ZIO::open(const std::string &filename, std::string mode, bool verbose)
 {
-    file_id = H5Fcreate(filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+    if(is_open)
+    {
+        close();
+    }
+    verbose_on = verbose;
+    if(mode == "a")
+    {
+        file_id = H5Fopen(filename.c_str(), H5F_ACC_RDWR, H5P_DEFAULT);
+    }
+    else if(mode == "w")
+    {
+        file_id = H5Fcreate(filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+    }
+    else if(mode == "r")
+    {
+        file_id = H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
+    }
+    else
+    {
+        throw std::runtime_error("Invalid mode");
+    }
+    if(verbose)
+    {
+        std::cout << "File " << filename << " opened" << std::endl;
+        std::cout << "Mode: " << mode << std::endl;
+        std::cout << "File ID: " << file_id << std::endl;
+    }
     is_open = true;
 }
+
 
 
 void H5ZIO::close()
@@ -232,11 +259,11 @@ void H5ZIO::close()
     H5Fclose(file_id);
     is_open = false;
 
-    if(verbose_on)
+    if(verbose_on && total_storage_size > 0)
     {
         // Imprime total de dados armazenados e taxa de compressão
         std::cout << "Total input data size: " << total_input_data_size << std::endl;
-        std::cout << "Total storage size: "   << total_storage_size << std::endl;
+        std::cout << "Total storage size: "    << total_storage_size << std::endl;
         std::cout << "Compression ratio: "    << (double) total_input_data_size / total_storage_size << std::endl;
     }
 

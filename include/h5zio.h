@@ -13,7 +13,16 @@
 
 namespace Compression {
 
-    enum  class Type {
+/*
+    enum class Type:int {
+        NONE     = 0,
+        ZFP      = 1,
+        SZ2      = 2,
+        GZIP     = 3
+    };
+*/
+
+    enum class Type:int {
         NONE     = 0,
         LOSSLESS = 1,
         LOSSY    = 2
@@ -40,6 +49,30 @@ namespace Compression {
         SZ_PW_RELATIVE       = 5,
         ZFP_PRECISION        = 6
     };
+
+namespace SZ2
+{
+    enum class ErrorBoundType:int
+    {
+        ABSOLUTE    = 0,
+        RELATIVE    = 1,
+        ABS_AND_REL = 2,
+        ABS_OR_REL  = 3,
+        PSNR        = 4,
+        PW_RELATIVE = 5
+    };
+}
+
+namespace ZFP
+{
+
+    enum class ErrorBoundType: int
+    {
+        ACCURACY   = 6,
+        REVERSIBLE = 7
+    };
+
+}
 
 static  double error_bound_values[]     = {1.0E-6, 1.0E-3, 1.0E-5, 1.0E-5, 1.0E-5, 1.0E-2, 1.0E-6};
 static  std::string error_bound_names[] = {"SZ ABSOLUTE", "SZ RELATIVE", "SZ ABS_AND_REL", "SZ ABS_OR_REL", "SZ PSNR", "SZ_PW_RELATIVE", "ZFP ACCURARY"};
@@ -82,7 +115,7 @@ class H5ZIO
     public:
         H5ZIO();
         ~H5ZIO();
-        void open(const std::string &filename);
+        void open(const std::string &filename, std::string mode = "a", bool verbose = false);
 
         template <typename T>
         void write_dataset(std::string dataset,const T* data, hsize_t ndims, hsize_t dims[], H5ZIOParameters& parameters);
@@ -272,6 +305,14 @@ void H5ZIO::write_dataset(std::string dataset, const T* data, hsize_t ndims,  hs
     }
     H5Dwrite(dataset_id, h5_type<T>(), H5S_ALL, H5S_ALL, H5P_DEFAULT, data);
     hsize_t storage_size = H5Dget_storage_size(dataset_id);
+
+    if(verbose_on)
+    {
+        std::cout << "Dataset: " << dataset << std::endl;
+        std::cout << "Input data size: " << data_size * type_size<T>() << std::endl;
+        std::cout << "Storage size: " << storage_size << std::endl;
+        std::cout << "Compression ratio: " << (double) data_size * type_size<T>() / storage_size << std::endl;
+    }
     total_storage_size += storage_size;
 
     H5Dclose(dataset_id);
@@ -305,13 +346,7 @@ void H5ZIO::read_dataset(std::string dataset, T* data)
     {
         throw std::runtime_error("Failed to open dataset");
     }
-    dataspace_id = H5Dget_space(dataset_id);
-    if(dataspace_id < 0)
-    {
-        throw std::runtime_error("Failed to get dataspace");
-    }
-    H5Dread(dataspace_id, h5_type<T>(), H5S_ALL, H5S_ALL, H5P_DEFAULT, data);
-    H5Sclose(dataspace_id);
+    H5Dread(dataset_id, h5_type<T>(), H5S_ALL, H5S_ALL, H5P_DEFAULT, data);
     H5Dclose(dataset_id);
 
 }
