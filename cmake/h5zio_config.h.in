@@ -1,0 +1,5 @@
+
+#cmakedefine H5ZIO_HAS_ZFP @H5ZIO_HAS_ZFP@
+#cmakedefine H5ZIO_HAS_SZ @H5ZIO_HAS_ZFP@
+#cmakedefine H5ZIO_HAS_GZIP @H5ZIO_HAS_ZFP@
+
