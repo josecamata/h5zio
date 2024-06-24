@@ -11,8 +11,13 @@
 #include "hdf5.h"
 #include "h5zio_config.h" 
 
-namespace Compression {
+namespace H5ZIO {
 
+    enum class FileMode:int {
+        READ  = 0,
+        WRITE = 1,
+        APPEND = 2
+    };
 
     enum class Type:int {
         NONE     = 0,
@@ -22,7 +27,7 @@ namespace Compression {
     };
 namespace SZ2
 {
-    enum class ErrorBoundType:int
+    enum class ErrorBound:int
     {
         ABSOLUTE    = 0,
         RELATIVE    = 1,
@@ -34,7 +39,7 @@ namespace SZ2
 }namespace ZFP
 {
 
-    enum class ErrorBoundType: int
+    enum class ErrorBound: int
     {
         ACCURACY   = 6,
         REVERSIBLE = 7
@@ -56,33 +61,36 @@ class H5ZIOParameters
     public:
         H5ZIOParameters();
         ~H5ZIOParameters() {};
-        void set_compression_type(Compression::Type type);
-        void set_error_bound_type(Compression::SZ2::ErrorBoundType type);
-        void set_error_bound_type(Compression::ZFP::ErrorBoundType type);
+        void set_compression_type(H5ZIO::Type type);
+        void set_error_bound_type(H5ZIO::SZ2::ErrorBound type);
+        void set_error_bound_type(H5ZIO::ZFP::ErrorBound type);
         void set_error_bound_value(double value);
 
-        Compression::Type  get_compression_type();
+        H5ZIO::Type  get_compression_type();
         int    get_error_bound_type();
-        double get_error_bound_value(Compression::SZ2::ErrorBoundType type);
-        double get_error_bound_value(Compression::ZFP::ErrorBoundType type);
+        double get_error_bound_value(H5ZIO::SZ2::ErrorBound type);
+        double get_error_bound_value(H5ZIO::ZFP::ErrorBound type);
         double get_error_bound_value();
         int    get_sz_error_bound_id();
         int    get_gzip_level();
 
+        void save_config(const std::string& filename);
+        void load_config(const std::string& filename);
         
     private:
         // Lossless compression parameters
-        Compression::Type type;    
+        H5ZIO::Type type;    
         int error_bound_type;    
         int gzip_level;
 };
 
 
-class H5ZIO 
+class H5Zio 
 {
     public:
-        H5ZIO();
-        ~H5ZIO();
+
+        H5Zio();
+        ~H5Zio();
         void open(const std::string &filename, std::string mode = "a");
 
         template <typename T>
@@ -120,7 +128,7 @@ class H5ZIO
 };  
 
 template <typename T>
-hsize_t H5ZIO::type_size()
+hsize_t H5Zio::type_size()
 {
     if(std::is_same<T, int>::value)
     {
@@ -183,7 +191,7 @@ hsize_t H5ZIO::type_size()
 }
 
  template <typename T> 
- hid_t H5ZIO::h5_type()
+ hid_t H5Zio::h5_type()
  {
         if(std::is_same<T, int>::value)
         {
@@ -245,7 +253,7 @@ hsize_t H5ZIO::type_size()
  }
 
 template <typename T>
-void H5ZIO::write_dataset(std::string dataset, const T* data, hsize_t ndims,  hsize_t dims[], H5ZIOParameters& parameters)
+void H5Zio::write_dataset(std::string dataset, const T* data, hsize_t ndims,  hsize_t dims[], H5ZIOParameters& parameters)
 {
     if(!is_open)
     {
@@ -280,7 +288,7 @@ void H5ZIO::write_dataset(std::string dataset, const T* data, hsize_t ndims,  hs
     if(verbose_on)
     {
         std::cout << "Dataset: " << dataset << std::endl;
-        std::cout << "Compression type: " << Compression::compression_type_names[(int) parameters.get_compression_type()] << std::endl;
+        std::cout << "Compression type: " << H5ZIO::compression_type_names[(int) parameters.get_compression_type()] << std::endl;
         std::cout << "Input data size: " << data_size * type_size<T>() << std::endl;
         std::cout << "Storage size: "    << storage_size << std::endl;
         std::cout << "Compression ratio: " << (double) data_size * type_size<T>() / storage_size << std::endl;
@@ -292,7 +300,7 @@ void H5ZIO::write_dataset(std::string dataset, const T* data, hsize_t ndims,  hs
 }
 
 template <typename T>
-void  H5ZIO::write_dataset(std::string dataset, const std::vector<T>& data , H5ZIOParameters& parameters)
+void  H5Zio::write_dataset(std::string dataset, const std::vector<T>& data , H5ZIOParameters& parameters)
 {
     if(!is_open)
     {
@@ -306,7 +314,7 @@ void  H5ZIO::write_dataset(std::string dataset, const std::vector<T>& data , H5Z
 }
 
 template <typename T>
-void H5ZIO::read_dataset(std::string dataset, T* data)
+void H5Zio::read_dataset(std::string dataset, T* data)
 {
     if(!is_open)
     {
@@ -324,7 +332,7 @@ void H5ZIO::read_dataset(std::string dataset, T* data)
 }
 
 template <typename T>
-void H5ZIO::read_dataset(std::string dataset, std::vector<T>& data)
+void H5Zio::read_dataset(std::string dataset, std::vector<T>& data)
 {
     if(!is_open)
     {

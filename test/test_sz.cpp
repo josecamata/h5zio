@@ -21,13 +21,13 @@ int main()
 
     // Test the H5ZIOParameters class
 
-    H5ZIO h5zio;
+    H5Zio h5zio;
     H5ZIOParameters parameters;
     double acc = 1.0E-6;
-    parameters.set_compression_type(Compression::Type::SZ2);
-    parameters.set_error_bound_type(Compression::SZ2::ErrorBoundType::ABSOLUTE);
+    parameters.set_compression_type(H5ZIO::Type::SZ2);
+    parameters.set_error_bound_type(H5ZIO::SZ2::ErrorBound::ABSOLUTE);
     parameters.set_error_bound_value(acc);
-    
+    parameters.save_config("config.txt");
     
     h5zio.enable_verbose(); 
     h5zio.open("test.h5", "w");

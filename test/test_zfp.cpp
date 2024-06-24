@@ -26,11 +26,11 @@ int main()
 
     // Test the H5ZIOParameters class
 
-    H5ZIO h5zio;
+    H5Zio h5zio;
     H5ZIOParameters parameters;
     double acc = 1.0E-6;
-    parameters.set_compression_type(Compression::Type::ZFP);
-    parameters.set_error_bound_type(Compression::ZFP::ErrorBoundType::ACCURACY);
+    parameters.set_compression_type(H5ZIO::Type::ZFP);
+    parameters.set_error_bound_type(H5ZIO::ZFP::ErrorBound::ACCURACY);
     parameters.set_error_bound_value(acc);
     
     
