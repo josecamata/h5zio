@@ -12,4 +12,6 @@ void compute_function(std::vector<double>& f, const std::vector<double>& x, cons
 
 double compute_l2_norm(const std::vector<double>& a, const std::vector<double>& b);
 
+double compute_infinity_norm(const std::vector<double>& a, const std::vector<double>& b);
+
 #endif     /* DATA_H__ */

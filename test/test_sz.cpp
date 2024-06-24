@@ -6,12 +6,7 @@
 
 #include "data.h"
 #include "h5zio.h"
-enum class test_enum
-{
-    NONE = 0,
-    LOSSLESS = 1,
-    LOSSY = 2
-};
+
 
 int main()
 {
@@ -29,8 +24,8 @@ int main()
     H5ZIO h5zio;
     H5ZIOParameters parameters;
     double acc = 1.0E-6;
-    parameters.set_compression_type(Compression::Type::ZFP);
-    parameters.set_error_bound_type(Compression::ZFP::ErrorBoundType::ACCURACY);
+    parameters.set_compression_type(Compression::Type::SZ2);
+    parameters.set_error_bound_type(Compression::SZ2::ErrorBoundType::ABSOLUTE);
     parameters.set_error_bound_value(acc);
     
     

@@ -40,3 +40,18 @@ double compute_l2_norm(const std::vector<double>& a, const std::vector<double>& 
     return std::sqrt(sum);
 }
 
+// compute the Infinity norm of the difference between two vectors
+double compute_infinity_norm(const std::vector<double>& a, const std::vector<double>& b)
+{
+    double max = 0.0;
+    for (size_t i = 0; i < a.size(); i++)
+    {
+        double diff = std::abs(a[i] - b[i]);
+        if (diff > max)
+        {
+            max = diff;
+        }
+    }
+    return max;
+}
+

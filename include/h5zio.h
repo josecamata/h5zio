@@ -13,43 +13,13 @@
 
 namespace Compression {
 
-/*
+
     enum class Type:int {
         NONE     = 0,
         ZFP      = 1,
         SZ2      = 2,
         GZIP     = 3
     };
-*/
-
-    enum class Type:int {
-        NONE     = 0,
-        LOSSLESS = 1,
-        LOSSY    = 2
-    };
-
-    enum  class LossLessType {
-        NONE           = 0,
-        GZIP           = 2,
-        ZFP_REVERSIBLE = 3
-    };
-
-    enum class LossyType {
-        NONE  = 0,
-        ZFP   = 4,
-        SZ2   = 5
-    };
-
-    enum LossyErrorBoundType {
-        SZ_ABSOLUTE          = 0,
-        SZ_RELATIVE          = 1,
-        SZ_ABS_AND_REL       = 2,
-        SZ_ABS_OR_REL        = 3,
-        SZ_PSNR              = 4,
-        SZ_PW_RELATIVE       = 5,
-        ZFP_PRECISION        = 6
-    };
-
 namespace SZ2
 {
     enum class ErrorBoundType:int
@@ -58,12 +28,10 @@ namespace SZ2
         RELATIVE    = 1,
         ABS_AND_REL = 2,
         ABS_OR_REL  = 3,
-        PSNR        = 4,
+        SZ_PSNR     = 4,
         PW_RELATIVE = 5
     };
-}
-
-namespace ZFP
+}namespace ZFP
 {
 
     enum class ErrorBoundType: int
@@ -75,8 +43,10 @@ namespace ZFP
 }
 
 static  double error_bound_values[]     = {1.0E-6, 1.0E-3, 1.0E-5, 1.0E-5, 1.0E-5, 1.0E-2, 1.0E-6};
-static  std::string error_bound_names[] = {"SZ ABSOLUTE", "SZ RELATIVE", "SZ ABS_AND_REL", "SZ ABS_OR_REL", "SZ PSNR", "SZ_PW_RELATIVE", "ZFP ACCURARY"};
+//                                         0               1             2                 3                4           5                 6               7
+static  std::string error_bound_names[] = {"SZ_ABSOLUTE", "SZ_RELATIVE", "SZ_ABS_AND_REL", "SZ_ABS_OR_REL", "SZ_PSNR", "SZ_PW_RELATIVE", "ZFP_ACCURARY", "ZFP_REVERSIBLE"};
 static  int  error_ids[]                = {0, 1, 2, 3, 4, 10, 6};
+static  std::string compression_type_names[] = {"NONE", "ZFP", "SZ2.1", "GZIP"};
 
 }
 
@@ -87,26 +57,24 @@ class H5ZIOParameters
         H5ZIOParameters();
         ~H5ZIOParameters() {};
         void set_compression_type(Compression::Type type);
-        void set_lossless_compression(Compression::LossLessType type);
-        void set_lossy_compression(Compression::LossyType type);
-        void set_error_bound(Compression::LossyErrorBoundType type, double value);
+        void set_error_bound_type(Compression::SZ2::ErrorBoundType type);
+        void set_error_bound_type(Compression::ZFP::ErrorBoundType type);
+        void set_error_bound_value(double value);
 
-        Compression::Type get_compression_type();
-        Compression::LossLessType get_lossless_type();
-        Compression::LossyType get_lossy_type();
-        Compression::LossyErrorBoundType get_error_bound_type();
-        int get_sz_error_bound_id();
-        int get_gzip_level();
-        double get_error_bound_value(Compression::LossyErrorBoundType type);
+        Compression::Type  get_compression_type();
+        int    get_error_bound_type();
+        double get_error_bound_value(Compression::SZ2::ErrorBoundType type);
+        double get_error_bound_value(Compression::ZFP::ErrorBoundType type);
+        double get_error_bound_value();
+        int    get_sz_error_bound_id();
+        int    get_gzip_level();
+
         
-
     private:
         // Lossless compression parameters
-        Compression::Type         CompressionType;
-        Compression::LossyType    lossyType;
-        Compression::LossLessType LossLessType;
+        Compression::Type type;    
+        int error_bound_type;    
         int gzip_level;
-        Compression::LossyErrorBoundType error_bound_type;
 };
 
 
@@ -115,7 +83,7 @@ class H5ZIO
     public:
         H5ZIO();
         ~H5ZIO();
-        void open(const std::string &filename, std::string mode = "a", bool verbose = false);
+        void open(const std::string &filename, std::string mode = "a");
 
         template <typename T>
         void write_dataset(std::string dataset,const T* data, hsize_t ndims, hsize_t dims[], H5ZIOParameters& parameters);
@@ -131,6 +99,9 @@ class H5ZIO
         void read_dataset(std::string dataset, std::vector<T>& data);
 
         void close();
+
+        void enable_verbose() {verbose_on = true;};
+        void disable_verbose(){verbose_on = false;};
        
     private:
 
@@ -309,8 +280,9 @@ void H5ZIO::write_dataset(std::string dataset, const T* data, hsize_t ndims,  hs
     if(verbose_on)
     {
         std::cout << "Dataset: " << dataset << std::endl;
+        std::cout << "Compression type: " << Compression::compression_type_names[(int) parameters.get_compression_type()] << std::endl;
         std::cout << "Input data size: " << data_size * type_size<T>() << std::endl;
-        std::cout << "Storage size: " << storage_size << std::endl;
+        std::cout << "Storage size: "    << storage_size << std::endl;
         std::cout << "Compression ratio: " << (double) data_size * type_size<T>() / storage_size << std::endl;
     }
     total_storage_size += storage_size;

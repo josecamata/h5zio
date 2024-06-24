@@ -16,104 +16,124 @@ H5ZIOParameters::H5ZIOParameters()
     // Initialize the parameters
     this->gzip_level = 9;
 #ifdef H5ZIO_HAS_ZFP
-    CompressionType  = Compression::Type::LOSSY;
-    lossyType        = Compression::LossyType::ZFP;
-    LossLessType     = Compression::LossLessType::NONE;
-    error_bound_type = Compression::LossyErrorBoundType::ZFP_PRECISION;
+    type             = Compression::Type::ZFP;
+    error_bound_type = static_cast<int>(Compression::ZFP::ErrorBoundType::ACCURACY);
 #elif(H5ZIO_HAS_SZ)
 {
-    CompressionType  = Compression::Type::LOSSY;
-    lossyType        = Compression::LossyType::SZ2;
-    LossLessType     = Compression::LossLessType::NONE;
-    error_bound_type = Compression::LossyErrorBoundType::SZ_RELATIVE;
+    type = (int) Compression::Type::SZ2;
+    error_bound_type = (int) Compression::SZ2::ErrorBoundType::ABSOLUTE;
 }
 #elif(H5ZIO_HAS_GZIP)
 {
-    CompressionType  = Compression::Type::LOSSLESS;
-    lossyType        = Compression::LossyType::NONE;
-    LossLessType     = Compression::LossLessType::GZIP;
-    error_bound_type = Compression::LossyErrorBoundType::NONE;
+    type = (int) Compression::Type::GZIP;
 }
 #else
-    CompressionType  = Compression::Type::NONE;
+    type = (int) Compression::Type::NONE;
 #endif
 
 }
 
-void H5ZIOParameters::set_compression_type(Compression::Type type)
-{
-    CompressionType = type;
-}
-
-void H5ZIOParameters::set_lossless_compression(Compression::LossLessType type)
+void H5ZIOParameters::set_compression_type(Compression::Type _type)
 {
 #ifndef H5ZIO_HAS_GZIP
-    if (type == Compression::LossLessType::GZIP)
+    if (type == Compression::Type::GZIP)
     {
         throw std::runtime_error("GZIP is not available");
     }
 #endif
 #ifndef H5ZIO_HAS_ZFP
-    if (type == Compression::LossLessType::ZFP_REVERSIBLE)
-    {
-        throw std::runtime_error("ZFP is not available");
-    }
-#endif
-    LossLessType = type;
-}
-
-void H5ZIOParameters::set_lossy_compression(Compression::LossyType type)
-{
-#ifndef H5ZIO_HAS_ZFP
-    if (type == Compression::LossyType::ZFP)
+    if (type == Compression::Type::ZFP)
     {
         throw std::runtime_error("ZFP is not available");
     }
 #endif
 #ifndef H5ZIO_HAS_SZ
-if (type == Compression::LossyType::SZ)
+    if (type == Compression::Type::SZ2)
     {
         throw std::runtime_error("SZ is not available");
     }
 #endif
-
-    lossyType = type;
+    this->type =  _type;
 }
 
-void H5ZIOParameters::set_error_bound(Compression::LossyErrorBoundType type, double value)
+void H5ZIOParameters::set_error_bound_type(Compression::SZ2::ErrorBoundType type)
 {
-    if(this->CompressionType == Compression::Type::LOSSLESS)
+    if(this->type != Compression::Type::SZ2)
     {
-        throw std::runtime_error("Error bounds are not available for lossless compression");
+        throw std::runtime_error("Error bounds are only available for SZ compression");
     }
-    //Compression::LossyErrorBoundType      = type;
-    int idx = (unsigned int)type;
-    Compression::error_bound_values[idx] = value;
+    error_bound_type = (int) type;
 }
+
+void H5ZIOParameters::set_error_bound_type(Compression::ZFP::ErrorBoundType type)
+{
+    if(this->type != Compression::Type::ZFP)
+    {
+        throw std::runtime_error("Error bounds are only available for ZFP compression");
+    }
+    error_bound_type = (int) type;
+}
+
+void H5ZIOParameters::set_error_bound_value(double value)
+{
+    Compression::error_bound_values[this->error_bound_type] = value;
+}
+
 
 Compression::Type H5ZIOParameters::get_compression_type()
 {
-    return this->CompressionType;
+    return this->type;
 }
 
-Compression::LossLessType H5ZIOParameters::get_lossless_type()
+double H5ZIOParameters::get_error_bound_value()
 {
-    return LossLessType;
+    if(this->type == Compression::Type::SZ2)
+    {
+        return get_error_bound_value(static_cast<Compression::SZ2::ErrorBoundType>(this->error_bound_type));
+    }
+    else if(this->type == Compression::Type::ZFP)
+    {
+        return get_error_bound_value(static_cast<Compression::ZFP::ErrorBoundType>(this->error_bound_type));
+    }
+    else
+    {
+        throw std::runtime_error("Error bounds are only available for SZ and ZFP compression");
+    }
 }
 
-Compression::LossyType H5ZIOParameters::get_lossy_type()
+double H5ZIOParameters::get_error_bound_value(Compression::SZ2::ErrorBoundType type)
 {
-    return lossyType;
+    if(this->type != Compression::Type::SZ2)
+    {
+        throw std::runtime_error("Error bounds are only available for SZ compression");
+    }
+    int idx = static_cast<int>(type);
+    return Compression::error_bound_values[idx];
 }
 
-Compression::LossyErrorBoundType H5ZIOParameters::get_error_bound_type()
+double H5ZIOParameters::get_error_bound_value(Compression::ZFP::ErrorBoundType type)
+{
+    if(this->type != Compression::Type::ZFP)
+    {
+        throw std::runtime_error("Error bounds are only available for ZFP compression");
+    }
+    int idx = static_cast<int>(type);
+    return Compression::error_bound_values[idx];
+}
+
+
+int H5ZIOParameters::get_error_bound_type()
 {
     return this->error_bound_type;
 }
 
 int H5ZIOParameters::get_sz_error_bound_id()
 {
-    return Compression::error_ids[(unsigned int)error_bound_type];
+    if(this->type != Compression::Type::SZ2)
+    {
+        throw std::runtime_error("Error bounds are only available for SZ compression");
+    }
+    return Compression::error_ids[error_bound_type];
 }
 
 
@@ -122,12 +142,6 @@ int H5ZIOParameters::get_gzip_level()
     return gzip_level;
 }
 
-double H5ZIOParameters::get_error_bound_value(Compression::LossyErrorBoundType type)
-{
-    return Compression::error_bound_values[type];
-}
-
-
 
 hid_t H5ZIO::create_filter(H5ZIOParameters& params, hsize_t ndims, hsize_t dims[])
 {
@@ -135,9 +149,9 @@ hid_t H5ZIO::create_filter(H5ZIOParameters& params, hsize_t ndims, hsize_t dims[
     hid_t avail = -1;
     hid_t filter_id = H5Pcreate(H5P_DATASET_CREATE);
 
-    if(params.get_compression_type() == Compression::Type::LOSSY)
+    if(params.get_compression_type() == Compression::Type::ZFP)
     {
-        if(params.get_lossy_type() == Compression::LossyType::ZFP)
+        if(params.get_error_bound_type() == static_cast<int>(Compression::ZFP::ErrorBoundType::ACCURACY))
         {
             unsigned cd_nelmts =  10;
             unsigned int cd_values[10];
@@ -147,48 +161,14 @@ hid_t H5ZIO::create_filter(H5ZIOParameters& params, hsize_t ndims, hsize_t dims[
                 throw std::runtime_error("ZFP filter is not available");
             }
             H5Pset_chunk(filter_id, ndims, dims);
-            double accuracy = params.get_error_bound_value(Compression::LossyErrorBoundType::ZFP_PRECISION);
+            double accuracy = params.get_error_bound_value(Compression::ZFP::ErrorBoundType::ACCURACY);
             H5Pset_zfp_accuracy_cdata(accuracy, cd_nelmts, cd_values);
             H5Pset_filter(filter_id, H5Z_FILTER_ZFP, H5Z_FLAG_MANDATORY, cd_nelmts, cd_values);
             return filter_id;
-        }
-
-        if(params.get_lossy_type() == Compression::LossyType::SZ2)
+        } 
+        else if (params.get_error_bound_type() == static_cast<int>(Compression::ZFP::ErrorBoundType::REVERSIBLE))
         {
-            unsigned int *cd_values = NULL;
-            size_t cd_nelmts = 0;
-            avail = H5Zfilter_avail(H5Z_FILTER_SZ);
-            if(avail < 0)
-            {
-                throw std::runtime_error("SZ filter is not available");
-            }
-            SZ_errConfigToCdArray(&cd_nelmts, &cd_values, params.get_sz_error_bound_id(), 
-                                            params.get_error_bound_value(Compression::LossyErrorBoundType::SZ_ABSOLUTE),
-                                            params.get_error_bound_value(Compression::LossyErrorBoundType::SZ_RELATIVE), 
-                                            params.get_error_bound_value(Compression::LossyErrorBoundType::SZ_PW_RELATIVE), 
-                                            params.get_error_bound_value(Compression::LossyErrorBoundType::SZ_PSNR));
-            H5Pset_chunk(filter_id, ndims, dims);
-            H5Pset_filter(filter_id, H5Z_FILTER_SZ, H5Z_FLAG_MANDATORY, cd_nelmts, cd_values);
-            return filter_id;
-        }
-    }
-
-    if(params.get_compression_type() == Compression::Type::LOSSLESS)
-    {
-        if(params.get_lossless_type() == Compression::LossLessType::GZIP)
-        {
-            avail = H5Zfilter_avail(H5Z_FILTER_DEFLATE);
-            if(avail < 0)
-            {
-                throw std::runtime_error("GZIP filter is not available");
-            }
-            H5Pset_chunk(filter_id, ndims, dims);
-            H5Pset_deflate(filter_id, params.get_gzip_level());
-            return filter_id;
-        }
-        if(params.get_lossless_type() == Compression::LossLessType::ZFP_REVERSIBLE)
-        {
-            size_t cd_nelmts = 10;
+            unsigned cd_nelmts =  10;
             unsigned int cd_values[10];
             avail = H5Zfilter_avail(H5Z_FILTER_ZFP);
             if(avail < 0)
@@ -199,9 +179,41 @@ hid_t H5ZIO::create_filter(H5ZIOParameters& params, hsize_t ndims, hsize_t dims[
             H5Pset_zfp_reversible_cdata(cd_nelmts, cd_values);
             H5Pset_filter(filter_id, H5Z_FILTER_ZFP, H5Z_FLAG_MANDATORY, cd_nelmts, cd_values);
             return filter_id;
+        } else
+        {
+            throw std::runtime_error("Invalid error bound type");
         }
     }
-
+    else if (params.get_compression_type() == Compression::Type::SZ2)
+    {
+        unsigned int *cd_values = NULL;
+        size_t cd_nelmts = 0;
+        avail = H5Zfilter_avail(H5Z_FILTER_SZ);
+        if(avail < 0)
+        {
+            throw std::runtime_error("SZ filter is not available");
+        }
+        SZ_errConfigToCdArray(&cd_nelmts, &cd_values, params.get_sz_error_bound_id(), 
+                                            params.get_error_bound_value(Compression::SZ2::ErrorBoundType::ABSOLUTE),
+                                            params.get_error_bound_value(Compression::SZ2::ErrorBoundType::RELATIVE), 
+                                            params.get_error_bound_value(Compression::SZ2::ErrorBoundType::PW_RELATIVE), 
+                                            params.get_error_bound_value(Compression::SZ2::ErrorBoundType::SZ_PSNR));
+        H5Pset_chunk(filter_id, ndims, dims);
+        H5Pset_filter(filter_id, H5Z_FILTER_SZ, H5Z_FLAG_MANDATORY, cd_nelmts, cd_values);
+        return filter_id;
+    }
+    else if (params.get_compression_type() == Compression::Type::GZIP)
+    {
+        avail = H5Zfilter_avail(H5Z_FILTER_DEFLATE);
+        if(avail < 0)
+        {
+            throw std::runtime_error("GZIP filter is not available");
+        }
+        H5Pset_chunk(filter_id, ndims, dims);
+        H5Pset_deflate(filter_id, params.get_gzip_level());
+        return filter_id;
+    }
+    
     return H5P_DEFAULT;
 }
 
@@ -220,13 +232,13 @@ H5ZIO::~H5ZIO()
     }
 }
 
-void H5ZIO::open(const std::string &filename, std::string mode, bool verbose)
+void H5ZIO::open(const std::string &filename, std::string mode)
 {
     if(is_open)
     {
         close();
     }
-    verbose_on = verbose;
+
     if(mode == "a")
     {
         file_id = H5Fopen(filename.c_str(), H5F_ACC_RDWR, H5P_DEFAULT);
@@ -243,7 +255,7 @@ void H5ZIO::open(const std::string &filename, std::string mode, bool verbose)
     {
         throw std::runtime_error("Invalid mode");
     }
-    if(verbose)
+    if(this->verbose_on)
     {
         std::cout << "File " << filename << " opened" << std::endl;
         std::cout << "Mode: " << mode << std::endl;
