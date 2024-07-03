@@ -36,8 +36,13 @@ int main()
     
     h5zio.enable_verbose(); 
     h5zio.open("test.h5", "w");
+
+    // H5 Attribute
+    H5ZioAttribute  attr;
+    attr.create_attribute("delta_t", "0.1");
+
     
-    h5zio.write_dataset<double>("f", f, parameters);
+    h5zio.write_dataset<double>("f", f, parameters, &attr);
     h5zio.close();
 
     h5zio.open("test.h5", "r");

@@ -55,14 +55,15 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 configure_file(${PROJECT_SOURCE_DIR}/cmake/h5zio_config.h.in ${PROJECT_SOURCE_DIR}/include/h5zio_config.h)
 
 file(GLOB SOURCES "src/*.cpp" 
-                  "include/*.h" )
+                  "include/*.h" 
+                  )
 
 # Library
 add_library(h5zio STATIC ${SOURCES})
 
-#add_executable(main main.cpp)
-#target_link_libraries(main ${HDF5_LIBRARIES} ${SZ_HDF5_LIBRARY} h5zio)
-#target_compile_definitions(main PRIVATE HDF5)
+add_executable(main main.cpp GetPot.hpp)
+target_link_libraries(main h5zio ${HDF5_LIBRARIES} ${SZ_HDF5_LIBRARY})
+target_compile_definitions(main PRIVATE HDF5)
 
 add_subdirectory(test)
 enable_testing()

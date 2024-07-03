@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <type_traits>
 #include <iostream>
+#include <map>
 
 #include "hdf5.h"
 #include "h5zio_config.h" 
@@ -84,6 +85,24 @@ class H5ZIOParameters
         int gzip_level;
 };
 
+class H5ZioAttribute
+{
+   
+    public:
+        H5ZioAttribute(){};
+        ~H5ZioAttribute(){};
+        void create_attribute(const std::string& name, const std::string& value)
+        {
+            attributes.push_back(std::make_pair(name, value));
+        }
+        int size() {return attributes.size();}
+
+        std::pair<std::string, std::string> get_attribute(int i) {return attributes[i];}
+        
+        private:
+            std::vector<std::pair<std::string, std::string> > attributes;
+            //std::map<std::string, AttributeValue* > attributes;
+};
 
 class H5Zio 
 {
@@ -94,10 +113,10 @@ class H5Zio
         void open(const std::string &filename, std::string mode = "a");
 
         template <typename T>
-        void write_dataset(std::string dataset,const T* data, hsize_t ndims, hsize_t dims[], H5ZIOParameters& parameters);
+        void write_dataset(std::string dataset,const T* data, hsize_t ndims, hsize_t dims[], H5ZIOParameters& parameters, H5ZioAttribute* attributes = nullptr);
 
         template <typename T>
-        void write_dataset(std::string dataset, const std::vector<T>& data, H5ZIOParameters& parameters);
+        void write_dataset(std::string dataset, const std::vector<T>& data, H5ZIOParameters& parameters, H5ZioAttribute* attributes = nullptr);
 
         void dataset_size(std::string dataset, hsize_t& ndims, hsize_t dims[]);
         template <typename T>
@@ -110,6 +129,10 @@ class H5Zio
 
         void enable_verbose() {verbose_on = true;};
         void disable_verbose(){verbose_on = false;};
+
+        void get_datasets_path(std::vector<std::string>& datasets_paths);
+
+        std::vector<std::pair<std::string, hid_t> > get_dataset_names();
        
     private:
 
@@ -253,7 +276,7 @@ hsize_t H5Zio::type_size()
  }
 
 template <typename T>
-void H5Zio::write_dataset(std::string dataset, const T* data, hsize_t ndims,  hsize_t dims[], H5ZIOParameters& parameters)
+void H5Zio::write_dataset(std::string dataset, const T* data, hsize_t ndims,  hsize_t dims[], H5ZIOParameters& parameters, H5ZioAttribute* attributes)
 {
     if(!is_open)
     {
@@ -277,6 +300,9 @@ void H5Zio::write_dataset(std::string dataset, const T* data, hsize_t ndims,  hs
     {
         throw std::runtime_error("Failed to create dataspace");
     }
+
+    // write dataset attributes
+
     dataset_id = H5Dcreate2(file_id, dataset.c_str(), h5_type<T>(), dataspace_id, H5P_DEFAULT, filter_id, H5P_DEFAULT);
     if(dataset_id < 0)
     {
@@ -284,6 +310,22 @@ void H5Zio::write_dataset(std::string dataset, const T* data, hsize_t ndims,  hs
     }
     H5Dwrite(dataset_id, h5_type<T>(), H5S_ALL, H5S_ALL, H5P_DEFAULT, data);
     hsize_t storage_size = H5Dget_storage_size(dataset_id);
+
+    if(attributes != nullptr)
+    {
+        for(int i = 0; i < attributes->size(); i++)
+        {
+            auto attribute = attributes->get_attribute(i);
+            hid_t attribute_id   = H5Screate(H5S_SCALAR);
+            hid_t attribute_type = H5Tcopy(H5T_C_S1);
+            H5Tset_size(attribute_type, attribute.second.size());
+            hid_t att_id = H5Acreate2(dataset_id, attribute.first.c_str(), attribute_type, attribute_id, H5P_DEFAULT, H5P_DEFAULT);
+            H5Awrite(att_id, attribute_type, attribute.second.c_str());
+            H5Aclose(att_id);
+            H5Tclose(attribute_type);
+            H5Sclose(attribute_id);
+        }
+    }
 
     if(verbose_on)
     {
@@ -300,7 +342,7 @@ void H5Zio::write_dataset(std::string dataset, const T* data, hsize_t ndims,  hs
 }
 
 template <typename T>
-void  H5Zio::write_dataset(std::string dataset, const std::vector<T>& data , H5ZIOParameters& parameters)
+void  H5Zio::write_dataset(std::string dataset, const std::vector<T>& data , H5ZIOParameters& parameters, H5ZioAttribute* attributes)
 {
     if(!is_open)
     {
@@ -309,7 +351,7 @@ void  H5Zio::write_dataset(std::string dataset, const std::vector<T>& data , H5Z
    
     hsize_t h5dims[1] = {data.size()};
 
-    write_dataset(dataset, data.data(), 1, h5dims, parameters);
+    write_dataset(dataset, data.data(), 1, h5dims, parameters, attributes);
 
 }
 

@@ -353,5 +353,86 @@ void H5Zio::dataset_size(std::string dataset, hsize_t& ndims, hsize_t dims[])
     H5Dclose(dset);
 }
 
+ herr_t iterate (hid_t group, const char *name, void *op_data)
+ {
+    std::vector<std::string> *names = (std::vector<std::string> *) op_data;
+    names->push_back(name);
+    std::cout << "name: " << name << std::endl;
+    return 0;
+ 
+ }
+
+
+
+
+ herr_t file_info(hid_t loc_id, const char *name, void *opdata)
+{
+    hid_t grp;
+    int status;
+    /*
+     * Open the group using its name.
+     */
+    grp = H5Gopen1(loc_id, name);
+    if(grp < 0)
+        return -1;
+
+    std::string group_name = "/" + std::string(name);
+    std::cout << "group_name: " << group_name << std::endl;
+
+    status = H5Giterate(grp,group_name.c_str(), NULL, file_info, opdata);
+
+ 
+    H5Gclose(grp);
+    return 0;
+ }
+
+void H5Zio::get_datasets_path(std::vector<std::string>& datasets)
+{
+    // Get the number of objects in the root group
+    // Obtém o grupo raiz
+    herr_t status;
+    status = H5Giterate(file_id,"/", NULL, file_info, NULL);
+    if (status < 0) {
+
+    }
+
+}
+
+
+
+
+std::vector<std::pair<std::string, hid_t> > H5Zio::get_dataset_names()
+{
+    std::vector<std::string> datasets_paths;
+    get_datasets_path(datasets_paths);
+    
+    // Get the number of objects in the root group
+    // H5G_info_t info;
+    // H5Gget_info(file_id, &info);
+    // size_t n                                = info.nlinks;
+    std::vector< std::pair<std::string, hid_t> > datasets;
+    // datasets.reserve(n);
+    // for(size_t i = 0; i < n; i++)
+    // {
+        
+    //     char name[256];
+    //     H5Lget_name_by_idx(file_id, ".", H5_INDEX_NAME, H5_ITER_NATIVE, i, name, 256, H5P_DEFAULT);
+    //     std::cout << "dsetname: " << name << std::endl;
+    //     hid_t dset = H5Dopen(file_id, name, H5P_DEFAULT);
+    //     if(dset < 0)
+    //        continue;
+        
+    //     hid_t type = H5Dget_type(dset);
+    //     std::pair<std::string, hid_t > p;
+    //     p.first = std::string(name);
+    //     p.second = type;
+    //     datasets.push_back(p);
+    //     H5Tclose(type);
+    //     H5Dclose(dset);
+    // }
+
+    return datasets;
+}
+
     
     
