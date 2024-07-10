@@ -32,11 +32,11 @@ int main()
     h5zio.enable_verbose(); 
     h5zio.open("test.h5", "w");
     
-    h5zio.write_dataset<double>("f", f, parameters);
+    h5zio.write_dataset<double>("f", f, &parameters);
     h5zio.close();
 
     h5zio.open("test.h5", "r");
-    h5zio.read_dataset<double>("f", f2);
+    auto dims = h5zio.read_dataset<double>("f", f2);
     h5zio.close();
 
     // Compute the L2 norm of the difference between f and f2

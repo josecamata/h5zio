@@ -4,6 +4,8 @@
 #include <fstream>
 #include <sstream>
 
+#include <stack>
+
 #ifdef H5ZIO_HAS_SZ
 #include "H5Z_SZ.h"
 #define MAX_CHUNK_SIZE 4294967295 // 2^32-1
@@ -13,6 +15,25 @@
 #include "H5Zzfp.h"
 #endif // ZFP_HDF5
 
+inline hsize_t compute_size(hsize_t ndims, hsize_t dims[])
+{
+    hsize_t size = 1;
+    for(int i = 0; i < ndims; i++)
+    {
+        size *= dims[i];
+    }
+    return size;
+}
+
+inline hsize_t compute_size(std::vector<hsize_t> dims)
+{
+    hsize_t size = 1;
+    for(int i = 0; i < dims.size(); i++)
+    {
+        size *= dims[i];
+    }
+    return size;
+}
 
 H5ZIOParameters::H5ZIOParameters()
 {
@@ -201,15 +222,15 @@ void H5ZIOParameters::load_config(const std::string& filename)
 }
 
 
-hid_t H5Zio::create_filter(H5ZIOParameters& params, hsize_t ndims, hsize_t dims[])
+hid_t H5Zio::create_filter(H5ZIOParameters* params, hsize_t ndims, hsize_t dims[])
 {
     
     hid_t avail = -1;
     hid_t filter_id = H5Pcreate(H5P_DATASET_CREATE);
 
-    if(params.get_compression_type() == H5ZIO::Type::ZFP)
+    if(params->get_compression_type() == H5ZIO::Type::ZFP)
     {
-        if(params.get_error_bound_type() == static_cast<int>(H5ZIO::ZFP::ErrorBound::ACCURACY))
+        if(params->get_error_bound_type() == static_cast<int>(H5ZIO::ZFP::ErrorBound::ACCURACY))
         {
             unsigned cd_nelmts =  10;
             unsigned int cd_values[10];
@@ -219,12 +240,12 @@ hid_t H5Zio::create_filter(H5ZIOParameters& params, hsize_t ndims, hsize_t dims[
                 throw std::runtime_error("ZFP filter is not available");
             }
             H5Pset_chunk(filter_id, ndims, dims);
-            double accuracy = params.get_error_bound_value(H5ZIO::ZFP::ErrorBound::ACCURACY);
+            double accuracy = params->get_error_bound_value(H5ZIO::ZFP::ErrorBound::ACCURACY);
             H5Pset_zfp_accuracy_cdata(accuracy, cd_nelmts, cd_values);
             H5Pset_filter(filter_id, H5Z_FILTER_ZFP, H5Z_FLAG_MANDATORY, cd_nelmts, cd_values);
             return filter_id;
         } 
-        else if (params.get_error_bound_type() == static_cast<int>(H5ZIO::ZFP::ErrorBound::REVERSIBLE))
+        else if (params->get_error_bound_type() == static_cast<int>(H5ZIO::ZFP::ErrorBound::REVERSIBLE))
         {
             unsigned cd_nelmts =  10;
             unsigned int cd_values[10];
@@ -242,7 +263,7 @@ hid_t H5Zio::create_filter(H5ZIOParameters& params, hsize_t ndims, hsize_t dims[
             throw std::runtime_error("Invalid error bound type");
         }
     }
-    else if (params.get_compression_type() == H5ZIO::Type::SZ2)
+    else if (params->get_compression_type() == H5ZIO::Type::SZ2)
     {
         unsigned int *cd_values = NULL;
         size_t cd_nelmts = 0;
@@ -251,16 +272,16 @@ hid_t H5Zio::create_filter(H5ZIOParameters& params, hsize_t ndims, hsize_t dims[
         {
             throw std::runtime_error("SZ filter is not available");
         }
-        SZ_errConfigToCdArray(&cd_nelmts, &cd_values, params.get_sz_error_bound_id(), 
-                                            params.get_error_bound_value(H5ZIO::SZ2::ErrorBound::ABSOLUTE),
-                                            params.get_error_bound_value(H5ZIO::SZ2::ErrorBound::RELATIVE), 
-                                            params.get_error_bound_value(H5ZIO::SZ2::ErrorBound::PW_RELATIVE), 
-                                            params.get_error_bound_value(H5ZIO::SZ2::ErrorBound::SZ_PSNR));
+        SZ_errConfigToCdArray(&cd_nelmts, &cd_values, params->get_sz_error_bound_id(), 
+                                            params->get_error_bound_value(H5ZIO::SZ2::ErrorBound::ABSOLUTE),
+                                            params->get_error_bound_value(H5ZIO::SZ2::ErrorBound::RELATIVE), 
+                                            params->get_error_bound_value(H5ZIO::SZ2::ErrorBound::PW_RELATIVE), 
+                                            params->get_error_bound_value(H5ZIO::SZ2::ErrorBound::SZ_PSNR));
         H5Pset_chunk(filter_id, ndims, dims);
         H5Pset_filter(filter_id, H5Z_FILTER_SZ, H5Z_FLAG_MANDATORY, cd_nelmts, cd_values);
         return filter_id;
     }
-    else if (params.get_compression_type() == H5ZIO::Type::GZIP)
+    else if (params->get_compression_type() == H5ZIO::Type::GZIP)
     {
         avail = H5Zfilter_avail(H5Z_FILTER_DEFLATE);
         if(avail < 0)
@@ -268,7 +289,7 @@ hid_t H5Zio::create_filter(H5ZIOParameters& params, hsize_t ndims, hsize_t dims[
             throw std::runtime_error("GZIP filter is not available");
         }
         H5Pset_chunk(filter_id, ndims, dims);
-        H5Pset_deflate(filter_id, params.get_gzip_level());
+        H5Pset_deflate(filter_id, params->get_gzip_level());
         return filter_id;
     }
     
@@ -339,100 +360,123 @@ void H5Zio::close()
 
 }
 
-void H5Zio::dataset_size(std::string dataset, hsize_t& ndims, hsize_t dims[])
+H5Dimensions H5Zio::dataset_dimensions(std::string dataset)
 {
     hid_t dset = H5Dopen(file_id, dataset.c_str(), H5P_DEFAULT);
     if(dset < 0)
     {
         throw std::runtime_error("Dataset not found");
     }
+
+    H5Dimensions dims;
     hid_t space = H5Dget_space(dset);
-    ndims = H5Sget_simple_extent_ndims(space);
-    H5Sget_simple_extent_dims(space, dims, NULL);
+    int ndims = H5Sget_simple_extent_ndims(space);
+    dims.set_ndims(ndims);
+    H5Sget_simple_extent_dims(space, dims.get_dims(), NULL);
     H5Sclose(space);
     H5Dclose(dset);
 }
 
- herr_t iterate (hid_t group, const char *name, void *op_data)
- {
-    std::vector<std::string> *names = (std::vector<std::string> *) op_data;
-    names->push_back(name);
-    std::cout << "name: " << name << std::endl;
-    return 0;
- 
- }
-
-
-
-
- herr_t file_info(hid_t loc_id, const char *name, void *opdata)
+void H5Zio::get_datasets_info(std::vector<dataset_info>& datasets)
 {
-    hid_t grp;
-    int status;
-    /*
-     * Open the group using its name.
-     */
-    grp = H5Gopen1(loc_id, name);
-    if(grp < 0)
-        return -1;
+    datasets.clear();
 
-    std::string group_name = "/" + std::string(name);
-    std::cout << "group_name: " << group_name << std::endl;
-
-    status = H5Giterate(grp,group_name.c_str(), NULL, file_info, opdata);
-
- 
-    H5Gclose(grp);
-    return 0;
- }
-
-void H5Zio::get_datasets_path(std::vector<std::string>& datasets)
-{
     // Get the number of objects in the root group
     // Obtém o grupo raiz
-    herr_t status;
-    status = H5Giterate(file_id,"/", NULL, file_info, NULL);
-    if (status < 0) {
+    std::stack<std::string> groups;
 
+    // Adiciona o grupo raiz
+    groups.push("/");
+
+    while(!groups.empty())
+    {
+        std::string group = groups.top();
+        
+        groups.pop();
+        hid_t group_id = H5Gopen(file_id, group.c_str(), H5P_DEFAULT);
+        if(group_id < 0)
+        {
+            throw std::runtime_error("Group not found");
+        }
+        H5G_info_t info;
+        H5Gget_info(group_id, &info);
+        size_t n = info.nlinks;
+        for(size_t i = 0; i < n; i++)
+        {
+            char name[256];
+            H5Lget_name_by_idx(group_id, ".", H5_INDEX_NAME, H5_ITER_NATIVE, i, name, 256, H5P_DEFAULT);
+            hid_t obj_id = H5Oopen(group_id, name, H5P_DEFAULT);
+            if(obj_id < 0)
+            {
+                throw std::runtime_error("Object not found");
+            }
+            H5O_info1_t obj_info;
+            H5Oget_info1(obj_id, &obj_info);
+            if(obj_info.type == H5O_TYPE_DATASET)
+            {
+                std::string dset_name(group + name);
+                
+                //std::cout << "dataset: " << dset_name << std::endl;
+                // get dataset type
+                hid_t dset = H5Dopen(file_id, dset_name.c_str(), H5P_DEFAULT);
+                if(dset < 0)
+                {
+                    throw std::runtime_error("Dataset not found");
+                }
+                hid_t type = H5Dget_type(dset);
+
+                H5Dclose(dset);
+
+                dataset_info info;
+                info.first  = dset_name;
+                info.second = type;
+                datasets.emplace_back(info);
+        
+            }
+            else if(obj_info.type == H5O_TYPE_GROUP)
+            {
+                groups.push(group + name + "/");
+            }
+            H5Oclose(obj_id);
+        }
+        H5Gclose(group_id);
     }
-
 }
 
-
-
-
-std::vector<std::pair<std::string, hid_t> > H5Zio::get_dataset_names()
+namespace H5ZIO {
+void compress(const std::string& input_file, const std::string& output_file, H5ZIOParameters& parameters)
 {
-    std::vector<std::string> datasets_paths;
-    get_datasets_path(datasets_paths);
-    
-    // Get the number of objects in the root group
-    // H5G_info_t info;
-    // H5Gget_info(file_id, &info);
-    // size_t n                                = info.nlinks;
-    std::vector< std::pair<std::string, hid_t> > datasets;
-    // datasets.reserve(n);
-    // for(size_t i = 0; i < n; i++)
-    // {
-        
-    //     char name[256];
-    //     H5Lget_name_by_idx(file_id, ".", H5_INDEX_NAME, H5_ITER_NATIVE, i, name, 256, H5P_DEFAULT);
-    //     std::cout << "dsetname: " << name << std::endl;
-    //     hid_t dset = H5Dopen(file_id, name, H5P_DEFAULT);
-    //     if(dset < 0)
-    //        continue;
-        
-    //     hid_t type = H5Dget_type(dset);
-    //     std::pair<std::string, hid_t > p;
-    //     p.first = std::string(name);
-    //     p.second = type;
-    //     datasets.push_back(p);
-    //     H5Tclose(type);
-    //     H5Dclose(dset);
-    // }
+    H5Zio input;
+    H5Zio output;
+    input.open(input_file, "r");
+    output.open(output_file, "w");
 
-    return datasets;
+    std::vector<dataset_info> datasets;
+    input.get_datasets_info(datasets);
+
+    for(int i = 0; i < datasets.size(); i++)
+    {
+        // abrir dataset e obter type
+        hid_t dset = H5Dopen(input.get_file_id(), datasets[i].first.c_str(), H5P_DEFAULT);
+        hid_t type = H5Dget_type(dset);
+        H5Dclose(dset);
+
+        if(H5Tequal(type, H5T_NATIVE_FLOAT) > 0)
+        {
+            std::vector<float> data;
+            auto dims = input.read_dataset<float>(datasets[i].first, data);
+            output.write_dataset<float>(datasets[i].first, data.data(), dims, &parameters);
+            continue;
+        }
+
+        if(H5Tequal(type, H5T_NATIVE_DOUBLE) > 0)
+        {
+            std::vector<double> data;
+            auto dims = input.read_dataset<double>(datasets[i].first, data);
+            output.write_dataset<double>(datasets[i].first, data.data(),dims, &parameters);
+            continue;
+        }
+    }
 }
-
-    
+}
     

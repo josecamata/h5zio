@@ -40,13 +40,11 @@ int main()
     // H5 Attribute
     H5ZioAttribute  attr;
     attr.create_attribute("delta_t", "0.1");
-
-    
-    h5zio.write_dataset<double>("f", f, parameters, &attr);
+    h5zio.write_dataset<double>("f", f, &parameters, &attr);
     h5zio.close();
 
     h5zio.open("test.h5", "r");
-    h5zio.read_dataset<double>("f", f2);
+    auto dims = h5zio.read_dataset<double>("f", f2);
     h5zio.close();
 
     // Compute the L2 norm of the difference between f and f2

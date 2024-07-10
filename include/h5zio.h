@@ -12,6 +12,9 @@
 #include "hdf5.h"
 #include "h5zio_config.h" 
 
+
+class H5ZIOParameters;
+
 namespace H5ZIO {
 
     enum class FileMode:int {
@@ -54,7 +57,55 @@ static  std::string error_bound_names[] = {"SZ_ABSOLUTE", "SZ_RELATIVE", "SZ_ABS
 static  int  error_ids[]                = {0, 1, 2, 3, 4, 10, 6};
 static  std::string compression_type_names[] = {"NONE", "ZFP", "SZ2.1", "GZIP"};
 
+void compress(const std::string& input_file, const std::string& output_file, H5ZIOParameters& parameters);
+
 }
+
+
+typedef std::pair<std::string, hid_t> dataset_info;
+
+
+class H5Dimensions
+{
+    public:
+        H5Dimensions():ndims(0) {};
+        H5Dimensions(hsize_t ndims, hsize_t dims[])
+        {
+            set_dimensions(ndims, dims);
+        }
+        ~H5Dimensions() 
+        {
+        };
+        void set_dimensions(hsize_t ndims, hsize_t dims[])
+        {
+            this->ndims = ndims;
+            this->dims.resize(ndims);
+            for(int i = 0; i < ndims; i++)
+            {
+                this->dims[i] = dims[i];
+            }
+        }
+        void   set_ndims(hsize_t ndims) 
+        { 
+            this->ndims = ndims;
+            dims.resize(ndims);
+        }
+        hsize_t  get_ndims(){return ndims;}
+        hsize_t* get_dims() {return dims.data();}
+        hsize_t& operator[](int i) {return dims[i];}
+        hsize_t  total_size()
+        {
+            hsize_t total_size = 1;
+            for(int i = 0; i < ndims; i++)
+            {
+                total_size *= dims[i];
+            }
+            return total_size;
+        }
+    private:
+        hsize_t              ndims;
+        std::vector<hsize_t> dims;
+};
 
 class H5ZIOParameters
 {
@@ -101,7 +152,7 @@ class H5ZioAttribute
         
         private:
             std::vector<std::pair<std::string, std::string> > attributes;
-            //std::map<std::string, AttributeValue* > attributes;
+
 };
 
 class H5Zio 
@@ -110,34 +161,44 @@ class H5Zio
 
         H5Zio();
         ~H5Zio();
+
         void open(const std::string &filename, std::string mode = "a");
 
         template <typename T>
-        void write_dataset(std::string dataset,const T* data, hsize_t ndims, hsize_t dims[], H5ZIOParameters& parameters, H5ZioAttribute* attributes = nullptr);
+        void write_dataset(std::string dataset,const T* data, H5Dimensions &dims, H5ZIOParameters* parameters = nullptr, H5ZioAttribute* attributes = nullptr);
+
 
         template <typename T>
-        void write_dataset(std::string dataset, const std::vector<T>& data, H5ZIOParameters& parameters, H5ZioAttribute* attributes = nullptr);
+        void write_dataset(std::string dataset,const T* data, hsize_t ndims, hsize_t dims[], H5ZIOParameters* parameters = nullptr, H5ZioAttribute* attributes = nullptr);
 
-        void dataset_size(std::string dataset, hsize_t& ndims, hsize_t dims[]);
+        template <typename T>
+        void write_dataset(std::string dataset, const std::vector<T>& data, H5ZIOParameters* parameters, H5ZioAttribute* attributes = nullptr);
+
+        template <typename T>
+        void write_dataset(std::string dataset, const std::vector<T>& data, H5Dimensions &dims, H5ZIOParameters* parameters, H5ZioAttribute* attributes = nullptr);
+
+
+        H5Dimensions dataset_dimensions(std::string dataset);
+
         template <typename T>
         void read_dataset(std::string dataset, T* data);
 
         template <typename T> 
-        void read_dataset(std::string dataset, std::vector<T>& data);
+        H5Dimensions read_dataset(std::string dataset, std::vector<T>& data);
 
         void close();
 
         void enable_verbose() {verbose_on = true;};
         void disable_verbose(){verbose_on = false;};
 
-        void get_datasets_path(std::vector<std::string>& datasets_paths);
+        void get_datasets_info(std::vector<dataset_info>& datasets_paths);
 
-        std::vector<std::pair<std::string, hid_t> > get_dataset_names();
+        hid_t get_file_id() {return file_id;}
        
     private:
 
-        hid_t create_filter(H5ZIOParameters& params, hsize_t ndims, hsize_t dims[]);
-        template <typename T> hid_t h5_type();
+        hid_t create_filter(H5ZIOParameters* params, hsize_t ndims, hsize_t dims[]);
+        template <typename T> hid_t    h5_type();
         template <typename T> hsize_t type_size();
 
          hid_t  file_id;
@@ -276,16 +337,20 @@ hsize_t H5Zio::type_size()
  }
 
 template <typename T>
-void H5Zio::write_dataset(std::string dataset, const T* data, hsize_t ndims,  hsize_t dims[], H5ZIOParameters& parameters, H5ZioAttribute* attributes)
+void H5Zio::write_dataset(std::string dataset, const T* data, hsize_t ndims,  hsize_t dims[], H5ZIOParameters* parameters, H5ZioAttribute* attributes)
 {
     if(!is_open)
     {
         throw std::runtime_error("File is not open");
     }
-    hid_t dataspace_id, dataset_id, filter_id;
+    hid_t dataspace_id, dataset_id, filter_id = H5P_DEFAULT;
     hsize_t h5dims[ndims];
 
-    filter_id = create_filter(parameters, ndims, dims);
+    if(parameters != nullptr)
+    {
+        filter_id = create_filter(parameters, ndims, dims);
+    }
+    
 
     hsize_t data_size = 1;
     for(int i = 0; i < ndims; i++)
@@ -330,7 +395,7 @@ void H5Zio::write_dataset(std::string dataset, const T* data, hsize_t ndims,  hs
     if(verbose_on)
     {
         std::cout << "Dataset: " << dataset << std::endl;
-        std::cout << "Compression type: " << H5ZIO::compression_type_names[(int) parameters.get_compression_type()] << std::endl;
+        std::cout << "Compression type: " << H5ZIO::compression_type_names[(int) parameters->get_compression_type()] << std::endl;
         std::cout << "Input data size: " << data_size * type_size<T>() << std::endl;
         std::cout << "Storage size: "    << storage_size << std::endl;
         std::cout << "Compression ratio: " << (double) data_size * type_size<T>() / storage_size << std::endl;
@@ -342,7 +407,17 @@ void H5Zio::write_dataset(std::string dataset, const T* data, hsize_t ndims,  hs
 }
 
 template <typename T>
-void  H5Zio::write_dataset(std::string dataset, const std::vector<T>& data , H5ZIOParameters& parameters, H5ZioAttribute* attributes)
+void  H5Zio::write_dataset(std::string dataset, const T* data , H5Dimensions& dims, H5ZIOParameters* parameters, H5ZioAttribute* attributes)
+{
+    if(!is_open)
+    {
+        throw std::runtime_error("File is not open");
+    }
+    write_dataset(dataset, data, dims.get_ndims(), dims.get_dims(), parameters, attributes);
+}
+
+template <typename T>
+void  H5Zio::write_dataset(std::string dataset, const std::vector<T>& data , H5ZIOParameters* parameters, H5ZioAttribute* attributes)
 {
     if(!is_open)
     {
@@ -353,6 +428,16 @@ void  H5Zio::write_dataset(std::string dataset, const std::vector<T>& data , H5Z
 
     write_dataset(dataset, data.data(), 1, h5dims, parameters, attributes);
 
+}
+
+template <typename T>
+void H5Zio::write_dataset(std::string dataset, const std::vector<T>& data, H5Dimensions &dims, H5ZIOParameters* parameters, H5ZioAttribute* attributes)
+{
+    if(!is_open)
+    {
+        throw std::runtime_error("File is not open");
+    }
+    write_dataset(dataset, data.data(), dims.get_ndims(), dims.get_dims(), parameters, attributes);
 }
 
 template <typename T>
@@ -374,17 +459,17 @@ void H5Zio::read_dataset(std::string dataset, T* data)
 }
 
 template <typename T>
-void H5Zio::read_dataset(std::string dataset, std::vector<T>& data)
+H5Dimensions H5Zio::read_dataset(std::string dataset, std::vector<T>& data)
 {
     if(!is_open)
     {
         throw std::runtime_error("File is not open");
     }
-    hsize_t ndims;
-    hsize_t dims[1];
-    dataset_size(dataset, ndims, dims);
-    data.resize(dims[0]);
+    
+    H5Dimensions dims = dataset_dimensions(dataset);
+    data.resize(dims.total_size());
     read_dataset(dataset, data.data());
+    return dims;
 }
 
 #endif     /* H5ZIO_H__ */
