@@ -476,6 +476,95 @@ void compress(const std::string& input_file, const std::string& output_file, H5Z
             output.write_dataset<double>(datasets[i].first, data.data(),dims, &parameters);
             continue;
         }
+
+        if(H5Tequal(type, H5T_NATIVE_INT) > 0)
+        {
+            std::vector<int> data;
+            auto dims = input.read_dataset<int>(datasets[i].first, data);
+            output.write_dataset<int>(datasets[i].first, data.data(), dims);
+            continue;
+        }
+
+        if(H5Tequal(type, H5T_NATIVE_LONG) > 0)
+        {
+            std::vector<long> data;
+            auto dims = input.read_dataset<long>(datasets[i].first, data);
+            output.write_dataset<long>(datasets[i].first, data.data(), dims);
+            continue;
+        }
+
+        if(H5Tequal(type, H5T_NATIVE_LLONG) > 0)
+        {
+            std::vector<long long> data;
+            auto dims = input.read_dataset<long long>(datasets[i].first, data);
+            output.write_dataset<long long>(datasets[i].first, data.data(), dims);
+            continue;
+        }
+
+        if(H5Tequal(type, H5T_NATIVE_UCHAR) > 0)
+        {
+            std::vector<unsigned char> data;
+            auto dims = input.read_dataset<unsigned char>(datasets[i].first, data);
+            output.write_dataset<unsigned char>(datasets[i].first, data.data(), dims);
+            continue;
+        }
+
+        if(H5Tequal(type, H5T_NATIVE_UINT) > 0)
+        {
+            std::vector<unsigned int> data;
+            auto dims = input.read_dataset<unsigned int>(datasets[i].first, data);
+            output.write_dataset<unsigned int>(datasets[i].first, data.data(), dims);
+            continue;
+        }
+
+        if(H5Tequal(type, H5T_NATIVE_ULONG) > 0)
+        {
+            std::vector<unsigned long> data;
+            auto dims = input.read_dataset<unsigned long>(datasets[i].first, data);
+            output.write_dataset<unsigned long>(datasets[i].first, data.data(), dims);
+            continue;
+        }
+
+        if(H5Tequal(type, H5T_NATIVE_ULLONG) > 0)
+        {
+            std::vector<unsigned long long> data;
+            auto dims = input.read_dataset<unsigned long long>(datasets[i].first, data);
+            output.write_dataset<unsigned long long>(datasets[i].first, data.data(), dims);
+            continue;
+        }
+
+        if(H5Tequal(type, H5T_NATIVE_SHORT) > 0)
+        {
+            std::vector<short> data;
+            auto dims = input.read_dataset<short>(datasets[i].first, data);
+            output.write_dataset<short>(datasets[i].first, data.data(), dims);
+            continue;
+        }
+
+        if(H5Tequal(type, H5T_NATIVE_USHORT) > 0)
+        {
+            std::vector<unsigned short> data;
+            auto dims = input.read_dataset<unsigned short>(datasets[i].first, data);
+            output.write_dataset<unsigned short>(datasets[i].first, data.data(), dims);
+            continue;
+        }
+
+        if(H5Tequal(type, H5T_NATIVE_CHAR) > 0)
+        {
+            std::vector<char> data;
+            auto dims = input.read_dataset<char>(datasets[i].first, data);
+            output.write_dataset<char>(datasets[i].first, data.data(), dims);
+            continue;
+        }
+
+        if(H5Tequal(type, H5T_NATIVE_UCHAR) > 0)
+        {
+            std::vector<unsigned char> data;
+            auto dims = input.read_dataset<unsigned char>(datasets[i].first, data);
+            output.write_dataset<unsigned char>(datasets[i].first, data.data(), dims);
+            continue;
+        }
+
     }
 }
 }
