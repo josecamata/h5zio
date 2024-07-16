@@ -34,7 +34,7 @@ int main()
     parameters.set_error_bound_value(acc);
     
     
-    h5zio.enable_verbose(); 
+    h5zio.set_verbose_level(1); 
     h5zio.open("test.h5", "w");
 
     // H5 Attribute

@@ -19,7 +19,7 @@ int main()
     parameters.set_error_bound_value(acc);
     
     
-    h5zio.enable_verbose(); 
+    h5zio.set_verbose_level(2); 
     h5zio.open("../cylinder.h5", "r");
 
     std::vector<double> geometry;
@@ -28,7 +28,8 @@ int main()
     std::cout << "Geometry size: " << geometry.size() << std::endl;
 
     std::vector<dataset_info> datasets;
-    h5zio.get_datasets_info(datasets);
+    std::vector<std::string>  groups;
+    h5zio.get_datasets_info(datasets, groups);
 
     return 0;
 } 

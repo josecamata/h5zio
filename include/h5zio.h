@@ -17,54 +17,79 @@ class H5ZIOParameters;
 
 namespace H5ZIO {
 
+    /**
+     * @brief enum class que define os modos de abertura dos arquivos h5
+     * 
+     */
     enum class FileMode:int {
         READ  = 0,
         WRITE = 1,
         APPEND = 2
     };
 
+    /**
+     * @brief enum class que define os tipos de compressão suportados
+     * 
+     */
     enum class Type:int {
         NONE     = 0,
         ZFP      = 1,
         SZ2      = 2,
         GZIP     = 3
     };
-namespace SZ2
-{
-    enum class ErrorBound:int
+    namespace SZ2
     {
-        ABSOLUTE    = 0,
-        RELATIVE    = 1,
-        ABS_AND_REL = 2,
-        ABS_OR_REL  = 3,
-        SZ_PSNR     = 4,
-        PW_RELATIVE = 5
-    };
-}namespace ZFP
-{
+        /**
+         * @brief enum class que define os tipos de erro suportados pelo SZ2
+         * 
+         */ 
+        enum class ErrorBound:int
+        {
+            ABSOLUTE    = 0,
+            RELATIVE    = 1,
+            ABS_AND_REL = 2,
+            ABS_OR_REL  = 3,
+            SZ_PSNR     = 4,
+            PW_RELATIVE = 5
+        };
+    }
+    
+    namespace ZFP
+    {
+        /**
+         * @brief enum class que define os tipos de erro suportados pelo ZFP
+         * 
+         */
+        enum class ErrorBound: int
+        {
+            ACCURACY   = 6,
+            REVERSIBLE = 7
+        };
 
-    enum class ErrorBound: int
-    {
-        ACCURACY   = 6,
-        REVERSIBLE = 7
-    };
+    }
+
+    // armazena os valores de erro default para cada tipo de erro
+    static  double error_bound_values[]     = {1.0E-6, 1.0E-3, 1.0E-5, 1.0E-5, 1.0E-5, 1.0E-2, 1.0E-6};
+    //                                         0               1             2                 3                4           5                 6               7
+    static  std::string error_bound_names[] = {"SZ_ABSOLUTE", "SZ_RELATIVE", "SZ_ABS_AND_REL", "SZ_ABS_OR_REL", "SZ_PSNR", "SZ_PW_RELATIVE", "ZFP_ACCURARY", "ZFP_REVERSIBLE"};
+    
+    // armaze os ids dos erros do SZ2
+    static  int  error_ids[]                = {0, 1, 2, 3, 4, 10, 6};
+    
+    static  std::string compression_type_names[] = {"NONE", "ZFP", "SZ2.1", "GZIP"};
+
+    // Rotina que converte um arquivo h5 com dados brutos para um arquivo h5 com compressão
+    void compress(const std::string& input_file, const std::string& output_file, H5ZIOParameters& parameters);
 
 }
-
-static  double error_bound_values[]     = {1.0E-6, 1.0E-3, 1.0E-5, 1.0E-5, 1.0E-5, 1.0E-2, 1.0E-6};
-//                                         0               1             2                 3                4           5                 6               7
-static  std::string error_bound_names[] = {"SZ_ABSOLUTE", "SZ_RELATIVE", "SZ_ABS_AND_REL", "SZ_ABS_OR_REL", "SZ_PSNR", "SZ_PW_RELATIVE", "ZFP_ACCURARY", "ZFP_REVERSIBLE"};
-static  int  error_ids[]                = {0, 1, 2, 3, 4, 10, 6};
-static  std::string compression_type_names[] = {"NONE", "ZFP", "SZ2.1", "GZIP"};
-
-void compress(const std::string& input_file, const std::string& output_file, H5ZIOParameters& parameters);
-
-}
-
 
 typedef std::pair<std::string, hid_t> dataset_info;
 
 
+/**
+ * @brief Manipula as dimensões de um dataset
+ * 
+ */
 class H5Dimensions
 {
     public:
@@ -107,11 +132,15 @@ class H5Dimensions
         std::vector<hsize_t> dims;
 };
 
+/**
+ * @brief Classe que manipula os parâmetros de compressão
+ * 
+ */
 class H5ZIOParameters
 {
 
     public:
-        H5ZIOParameters();
+        H5ZIOParameters()    ;
         ~H5ZIOParameters() {};
         void set_compression_type(H5ZIO::Type type);
         void set_error_bound_type(H5ZIO::SZ2::ErrorBound type);
@@ -136,6 +165,10 @@ class H5ZIOParameters
         int gzip_level;
 };
 
+/**
+ * @brief Define os atributos de um dataset
+ * 
+ */
 class H5ZioAttribute
 {
    
@@ -155,6 +188,11 @@ class H5ZioAttribute
 
 };
 
+/**
+ * @brief Classe especializada em leitura e escrita de arquivos h5 
+ *        com suporte a compressão de dados
+ * 
+ */
 class H5Zio 
 {
     public:
@@ -162,12 +200,37 @@ class H5Zio
         H5Zio();
         ~H5Zio();
 
+        /**
+         * @brief Open um arquivo h5 para leitura ou escrita
+         * 
+         * @param filename 
+         * @param mode 
+         */
         void open(const std::string &filename, std::string mode = "a");
 
+        /**
+         * @brief Escreve um dataset no arquivo h5
+         * 
+         * @param dataset    : nome do dataset
+         * @param data       : ponteiro para os dados
+         * @param parameters : parâmetros de compressão
+         * @param attributes : atributos do dataset
+         */
         template <typename T>
         void write_dataset(std::string dataset,const T* data, H5Dimensions &dims, H5ZIOParameters* parameters = nullptr, H5ZioAttribute* attributes = nullptr);
 
 
+        /**
+         * @brief Escreve um dataset no arquivo h5
+         * 
+         * @tparam T         : tipo dos dados
+         * @param dataset    : nome do dataset
+         * @param data       : ponteiro para os dados
+         * @param ndims      : número de dimensões
+         * @param dims       : dimensões
+         * @param parameters : parâmetros de compressão
+         * @param attributes : atributos do dataset
+         */
         template <typename T>
         void write_dataset(std::string dataset,const T* data, hsize_t ndims, hsize_t dims[], H5ZIOParameters* parameters = nullptr, H5ZioAttribute* attributes = nullptr);
 
@@ -177,23 +240,63 @@ class H5Zio
         template <typename T>
         void write_dataset(std::string dataset, const std::vector<T>& data, H5Dimensions &dims, H5ZIOParameters* parameters, H5ZioAttribute* attributes = nullptr);
 
-
+        /**
+         * @brief Obtem as dimensões de um dataset de um arquivo.
+         *        Deve ser usado somente se o arquivo estiver aberto em modo de leitura
+         * 
+         * @param dataset 
+         * @return H5Dimensions 
+         */
         H5Dimensions dataset_dimensions(std::string dataset);
 
+        /**
+         * @brief Faz a leitura de um dataset
+         * 
+         * @tparam T       : tipo dos dados
+         * @param dataset  : nome do dataset
+         * @param data     : ponteiro para os dados
+         */
         template <typename T>
         void read_dataset(std::string dataset, T* data);
 
+        /**
+         * @brief Faz a leitura de um dataset
+         * 
+         * @tparam T       : tipo dos dados
+         * @param dataset  : nome do dataset
+         * @param data     : vetor para armazenar os dados
+         * @return H5Dimensions : dimensões do dataset
+         */
         template <typename T> 
         H5Dimensions read_dataset(std::string dataset, std::vector<T>& data);
 
+        /**
+         * @brief Fecha o arquivo h5
+         * 
+         */
         void close();
 
-        void enable_verbose() {verbose_on = true;};
-        void disable_verbose(){verbose_on = false;};
+        /**
+         * @brief Define o nível de verbose
+         *         level 0: nenhum output
+         *         level 1: output mínimo  
+         *         level 2: output detalhado  
+         * @param level 
+         */
+        void set_verbose_level(int level) {verbose_level = level;};
 
-        void get_datasets_info(std::vector<dataset_info>& datasets_paths);
+
+        /**
+         * @brief Extrai informações dos datasets de um arquivo h5
+         * 
+         * @param datasets_paths  : lista dos datasets
+         * @param groups_list     : lista dos grupos
+         */
+        void get_datasets_info(std::vector<dataset_info>& datasets_paths, std::vector<std::string> &groups_list);
 
         hid_t get_file_id() {return file_id;}
+
+        void create_groups(std::vector<std::string> &groups);
        
     private:
 
@@ -201,12 +304,16 @@ class H5Zio
         template <typename T> hid_t    h5_type();
         template <typename T> hsize_t type_size();
 
-         hid_t  file_id;
-         bool is_open;
-         bool verbose_on;
+        void create_groups(const std::string& path);
 
-         hsize_t total_storage_size;
-         hsize_t total_input_data_size;
+        std::string file_name;
+        hid_t       file_id;
+        bool         is_open;
+        unsigned short verbose_level;
+        H5ZIO::FileMode mode;
+
+        hsize_t total_storage_size;
+        hsize_t total_input_data_size;
  
 
 };  
@@ -360,6 +467,7 @@ void H5Zio::write_dataset(std::string dataset, const T* data, hsize_t ndims,  hs
     }
 
     total_input_data_size += data_size * type_size<T>();
+
     dataspace_id = H5Screate_simple(ndims, h5dims, NULL);
     if(dataspace_id < 0)
     {
@@ -367,7 +475,6 @@ void H5Zio::write_dataset(std::string dataset, const T* data, hsize_t ndims,  hs
     }
 
     // write dataset attributes
-
     dataset_id = H5Dcreate2(file_id, dataset.c_str(), h5_type<T>(), dataspace_id, H5P_DEFAULT, filter_id, H5P_DEFAULT);
     if(dataset_id < 0)
     {
@@ -392,14 +499,15 @@ void H5Zio::write_dataset(std::string dataset, const T* data, hsize_t ndims,  hs
         }
     }
 
-    if(verbose_on)
+    if(verbose_level > 1)
     {
         std::cout << "Dataset: " << dataset << std::endl;
-        std::cout << "Compression type: " << H5ZIO::compression_type_names[(int) parameters->get_compression_type()] << std::endl;
+        if(parameters) std::cout << "Compression type: " << H5ZIO::compression_type_names[(int) parameters->get_compression_type()] << std::endl;
         std::cout << "Input data size: " << data_size * type_size<T>() << std::endl;
         std::cout << "Storage size: "    << storage_size << std::endl;
-        std::cout << "Compression ratio: " << (double) data_size * type_size<T>() / storage_size << std::endl;
+        if(parameters) std::cout << "Compression ratio: " << (double) data_size * type_size<T>() / storage_size << std::endl;
     }
+
     total_storage_size += storage_size;
 
     H5Dclose(dataset_id);

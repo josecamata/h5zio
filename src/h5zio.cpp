@@ -5,6 +5,7 @@
 #include <sstream>
 
 #include <stack>
+#include <unordered_set>
 
 #ifdef H5ZIO_HAS_SZ
 #include "H5Z_SZ.h"
@@ -300,7 +301,7 @@ H5Zio::H5Zio():is_open(false), file_id(-1)
 {
     total_input_data_size = 0;
     total_storage_size = 0;
-    verbose_on = true;
+    verbose_level = 1;
 }
 
 H5Zio::~H5Zio()
@@ -309,32 +310,50 @@ H5Zio::~H5Zio()
     {
         close();
     }
+
+    // Imprimir total de dados armazenados em Mb e taxa de compressão
+    if(verbose_level>0 && total_storage_size > 0)
+    {
+        std::cout <<"===============================================" << std::endl;
+        std::cout << "File name: " << file_name << std::endl;
+        std::cout << "Total input data size (in MB): " << total_input_data_size/1.0E6 << std::endl;
+        std::cout << "Total storage size (in MB): "    << total_storage_size/1.0E6 << std::endl;
+        std::cout << "Compression ratio: "    << (double) total_input_data_size / total_storage_size << std::endl;
+        std::cout <<"===============================================" << std::endl;
+    }
+
 }
 
-void H5Zio::open(const std::string &filename, std::string mode)
+void H5Zio::open(const std::string &filename, std::string fmode)
 {
     if(is_open)
     {
         close();
     }
 
-    if(mode == "a")
+    file_name = filename;
+
+    if(fmode == "a")
     {
         file_id = H5Fopen(filename.c_str(), H5F_ACC_RDWR, H5P_DEFAULT);
+        mode    = H5ZIO::FileMode::APPEND;
     }
-    else if(mode == "w")
+    else if(fmode == "w")
     {
         file_id = H5Fcreate(filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+        mode    = H5ZIO::FileMode::WRITE;
     }
-    else if(mode == "r")
+    else if(fmode == "r")
     {
         file_id = H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
+        mode    = H5ZIO::FileMode::READ;
+
     }
     else
     {
         throw std::runtime_error("Invalid mode");
     }
-    if(this->verbose_on)
+    if(this->verbose_level > 1)
     {
         std::cout << "File " << filename << " opened" << std::endl;
         std::cout << "Mode: " << mode << std::endl;
@@ -349,41 +368,45 @@ void H5Zio::close()
 {
     H5Fclose(file_id);
     is_open = false;
-
-    if(verbose_on && total_storage_size > 0)
-    {
-        // Imprime total de dados armazenados e taxa de compressão
-        std::cout << "Total input data size: " << total_input_data_size << std::endl;
-        std::cout << "Total storage size: "    << total_storage_size << std::endl;
-        std::cout << "Compression ratio: "    << (double) total_input_data_size / total_storage_size << std::endl;
-    }
-
 }
 
 H5Dimensions H5Zio::dataset_dimensions(std::string dataset)
 {
+    // vefificar se o arquivo foi aberto em modo de leitura
+    if(mode != H5ZIO::FileMode::READ)
+    {
+        throw std::runtime_error("File not opened in read mode");
+    }
+
+    // abrir dataset
     hid_t dset = H5Dopen(file_id, dataset.c_str(), H5P_DEFAULT);
     if(dset < 0)
     {
         throw std::runtime_error("Dataset not found");
     }
 
+    // obter dimensões
     H5Dimensions dims;
     hid_t space = H5Dget_space(dset);
     int ndims = H5Sget_simple_extent_ndims(space);
-    dims.set_ndims(ndims);
+    hsize_t _dims[ndims];
+    dims.set_dimensions(ndims, _dims);
     H5Sget_simple_extent_dims(space, dims.get_dims(), NULL);
     H5Sclose(space);
     H5Dclose(dset);
+    
+    return dims;
 }
 
-void H5Zio::get_datasets_info(std::vector<dataset_info>& datasets)
+void H5Zio::get_datasets_info(std::vector<dataset_info>& datasets, std::vector<std::string> &groups_list)
 {
     datasets.clear();
 
     // Get the number of objects in the root group
     // Obtém o grupo raiz
     std::stack<std::string> groups;
+    std::unordered_set<std::string> visited;
+  
 
     // Adiciona o grupo raiz
     groups.push("/");
@@ -435,13 +458,49 @@ void H5Zio::get_datasets_info(std::vector<dataset_info>& datasets)
             }
             else if(obj_info.type == H5O_TYPE_GROUP)
             {
-                groups.push(group + name + "/");
+                std::string group_name = group + name + "/";
+                groups.push(group_name);
+                visited.insert(group_name);
+                
             }
             H5Oclose(obj_id);
         }
         H5Gclose(group_id);
     }
+
+    int n_grupos = visited.size();
+    groups_list.resize(n_grupos);
+    int pos = n_grupos -1;
+    for(auto it = visited.begin(); it != visited.end(); it++)
+    {
+        groups_list[pos] = (*it);
+        pos--;
+    }
+
+    // // imprime grupos
+    // for(int i = 0; i < n_grupos; i++)
+    // {
+    //     std::cout << groups_list[i] << std::endl;
+    // }
+
 }
+
+void H5Zio::create_groups(std::vector<std::string> &groups)
+{
+    for(int i = 0; i < groups.size(); i++)
+    {
+        if(this->verbose_level > 1) 
+            std::cout << "Creating group: " << groups[i] << std::endl;
+        hid_t group_id = H5Gcreate(file_id, groups[i].c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+        if(group_id < 0)
+        {
+            throw std::runtime_error("Error creating group");
+        }
+        H5Gclose(group_id);
+    }
+
+}
+
 
 namespace H5ZIO {
 void compress(const std::string& input_file, const std::string& output_file, H5ZIOParameters& parameters)
@@ -450,9 +509,13 @@ void compress(const std::string& input_file, const std::string& output_file, H5Z
     H5Zio output;
     input.open(input_file, "r");
     output.open(output_file, "w");
+    output.set_verbose_level(1);
 
     std::vector<dataset_info> datasets;
-    input.get_datasets_info(datasets);
+    std::vector<std::string> groups;
+    input.get_datasets_info(datasets, groups);
+
+    output.create_groups(groups);
 
     for(int i = 0; i < datasets.size(); i++)
     {
@@ -566,6 +629,10 @@ void compress(const std::string& input_file, const std::string& output_file, H5Z
         }
 
     }
+
 }
+
+
+
 }
     

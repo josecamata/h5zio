@@ -29,7 +29,7 @@ int main()
     parameters.set_error_bound_value(acc);
     parameters.save_config("config.txt");
     
-    h5zio.enable_verbose(); 
+    h5zio.set_verbose_level(1); 
     h5zio.open("test.h5", "w");
     
     h5zio.write_dataset<double>("f", f, &parameters);

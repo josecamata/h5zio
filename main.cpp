@@ -39,8 +39,8 @@ void print_help()
 #endif
 #ifdef H5ZIO_HAS_ZFP
     cout << "        ZFP error bound types available: " << std::endl;
-    cout << "          6:ZFP_ACCURACY" << std::endl;
-    cout << "          7:ZFP_REVERSIBLE" << std::endl;
+    cout << "          0:ZFP_ACCURACY" << std::endl;
+    cout << "          1:ZFP_REVERSIBLE" << std::endl;
 #endif
     cout << "  -e <value>: Specify the error bound value" << endl;
     cout << "  -v : Print verbose output" << endl;
@@ -131,7 +131,7 @@ int main(int argc, char* argv[])
 
     if (cl.search(2, "--verbose", "-v"))
     {
-        output.enable_verbose();
+        output.set_verbose_level(1);
     }
 
     if (cl.search(2, "--filter", "-f"))
@@ -169,6 +169,7 @@ int main(int argc, char* argv[])
         }
         else if(filter == "zfp")
         {
+            error_bound_type+=6;
             write_parameters_float.set_error_bound_type(static_cast<H5ZIO::ZFP::ErrorBound>(error_bound_type));
         }
         else
