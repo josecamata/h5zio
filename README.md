@@ -51,8 +51,24 @@ Após a compilação, a biblioteca pode ser utilizada para comprimir arquivos HD
 
 int main() {
     // Exemplo de uso da compressão
-    H5Zio compressor;
-    compressor.compress("dados.h5", "saida_comprimida.h5", CompressorType::ZFP);
+    std::vector<double> dataset;
+
+    fill_dataset(dataset);
+
+    H5Zio h5zio;
+    H5ZIOParameters parameters;
+    parameters.set_compression_type(H5ZIO::Type::ZFP);
+    parameters.set_error_bound_type(H5ZIO::ZFP::ErrorBound::ACCURACY);
+    parameters.set_error_bound_value(1.0E-06);
+     
+    h5zio.open("test.h5", "w");
+
+    // H5 Attribute
+    H5ZioAttribute  attr;
+    attr.create_attribute("delta_t", "0.1");
+    h5zio.write_dataset<double>("dataset", dataset, &parameters, &attr);
+    h5zio.close();
+
     return 0;
 }
 ```
