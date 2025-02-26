@@ -96,6 +96,6 @@ Contribuições são bem-vindas! Para contribuir:
    ```
 5. Abra um Pull Request.
 
-## Licença
-Este projeto é distribuído sob a licença MIT. Veja o arquivo `LICENSE` para mais detalhes.
+## Agradecimento
+Este projeto recebeu financiamento da FAPEMIG (APQ-01123-21).
 
